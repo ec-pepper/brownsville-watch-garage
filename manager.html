@@ -5,7 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brownsville Watch Garage Manager</title>
     <link rel="stylesheet" href="style.css">
+
+    <style>
+        body {
+            visibility: hidden;
+        }
+    </style>
 </head>
+
 <body>
 
     <header>
@@ -15,12 +22,10 @@
     </header>
 
     <main>
-
         <section>
             <h2>Add New Watch</h2>
 
             <form id="watch-form">
-
                 <label for="brand">Brand</label><br>
                 <input
                     type="text"
@@ -76,7 +81,6 @@
                 <button type="submit">Add Watch</button>
 
                 <p id="form-status" role="status"></p>
-
             </form>
         </section>
 
@@ -91,71 +95,102 @@
                 </p>
             </div>
         </section>
-
     </main>
 
     <script type="module">
         import { createClient } from
             "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-        const SUPABASE_URL = "https://bgqfxirtqraxsiqrryoi.supabase.co";
+        const SUPABASE_URL =
+            "https://bgqfxirtqraxsiqrryoi.supabase.co";
+
         const SUPABASE_PUBLISHABLE_KEY =
             "sb_publishable_2MoZxCN5_YXXs3_lRU_r9w_tKj1XRrM";
+
+        const ALLOWED_USER_ID =
+            "668c3aec-711f-4fb4-afad-317a25c3a7f7";
 
         const supabase = createClient(
             SUPABASE_URL,
             SUPABASE_PUBLISHABLE_KEY
         );
 
-        // Check whether the visitor has a Supabase session.
-        const { data: sessionData, error: sessionError } =
-            await supabase.auth.getSession();
+        async function initializeManager() {
+            // Verify the signed-in user.
+            const { data, error } =
+                await supabase.auth.getUser();
 
-        if (sessionError || !sessionData.session) {
-            window.location.replace("manager_login.html");
-        }
+            if (
+                error ||
+                !data.user ||
+                data.user.id !== ALLOWED_USER_ID
+            ) {
+                await supabase.auth.signOut();
+                window.location.replace("manager_login.html");
+                return;
+            }
 
-        // Log out of the manager dashboard.
-        document.getElementById("logout-button")
-            .addEventListener("click", async () => {
-                const { error } = await supabase.auth.signOut();
+            // Reveal the dashboard only after verification.
+            document.body.style.visibility = "visible";
 
-                if (error) {
-                    alert("Unable to log out. Please try again.");
+            // Log out.
+            document.getElementById("logout-button")
+                .addEventListener("click", async () => {
+                    const { error } =
+                        await supabase.auth.signOut();
+
+                    if (error) {
+                        alert("Unable to log out. Please try again.");
+                        return;
+                    }
+
+                    window.location.replace("manager_login.html");
+                });
+
+            // Preview the selected watch image.
+            const imageInput =
+                document.getElementById("watch-image");
+
+            const imagePreview =
+                document.getElementById("image-preview");
+
+            imageInput.addEventListener("change", () => {
+                const file = imageInput.files[0];
+
+                if (!file) {
+                    imagePreview.src = "images/no-image.png";
                     return;
                 }
 
-                window.location.replace("manager_login.html");
-            });
-
-        // Preview the selected watch image.
-        const imageInput = document.getElementById("watch-image");
-        const imagePreview = document.getElementById("image-preview");
-
-        imageInput.addEventListener("change", () => {
-            const file = imageInput.files[0];
-
-            if (file) {
                 if (!file.type.startsWith("image/")) {
                     alert("Please select an image file.");
                     imageInput.value = "";
+                    imagePreview.src = "images/no-image.png";
                     return;
                 }
 
                 imagePreview.src = URL.createObjectURL(file);
-            } else {
-                imagePreview.src = "images/no-image.png";
-            }
-        });
-
-        // Watch submission will be connected to your database next.
-        document.getElementById("watch-form")
-            .addEventListener("submit", (event) => {
-                event.preventDefault();
-
-                document.getElementById("form-status").textContent =
-                    "The form is ready. Configure your Supabase inventory table and image storage to save watches.";
             });
+
+            // Inventory saving will be connected next.
+            document.getElementById("watch-form")
+                .addEventListener("submit", (event) => {
+                    event.preventDefault();
+
+                    document.getElementById("form-status")
+                        .textContent =
+                        "Your account is verified. Inventory saving still needs to be connected.";
+                });
+        }
+
+        initializeManager().catch((error) => {
+            console.error(
+                "Manager initialization failed:",
+                error
+            );
+
+            window.location.replace("manager_login.html");
+        });
     </script>
 
 </body>
