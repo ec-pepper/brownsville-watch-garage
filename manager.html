@@ -112,7 +112,7 @@
             await supabase.auth.getSession();
 
         if (sessionError || !sessionData.session) {
-            window.location.replace("login.html");
+            window.location.replace("manager_login.html");
         }
 
         // Log out of the manager dashboard.
@@ -125,7 +125,7 @@
                     return;
                 }
 
-                window.location.replace("login.html");
+                window.location.replace("manager_login.html");
             });
 
         // Preview the selected watch image.
