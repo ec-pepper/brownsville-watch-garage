@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brownsville Watch Garage Manager</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>Brownsville Watch Garage</h1>
+        <p>Manager Dashboard</p>
+    </header>
+
+    <main>
+
+        <section>
+            <h2>Add New Watch</h2>
+
+            <form>
+
+                <label>Brand</label><br>
+                <input type="text" placeholder="BRAND"><br><br>
+
+                <label>Model</label><br>
+                <input type="text" placeholder="MODEL"><br><br>
+
+                <label>Price</label><br>
+                <input type="number" placeholder="$$$"><br><br>
+
+                <label>Description</label><br>
+                <textarea rows="5" placeholder="Watch description"></textarea><br><br>
+
+                <label>Watch Image</label><br>
+                <input type="file" accept="image/*"><br><br>
+
+                <img src="images/no-image.png"
+              <button type="submit">Add Watch</button>
+
+            </form>
+        </section>
+
+        <hr>
+
+        <section>
+            <h2>Current Inventory</h2>
+
+            <div class="watch-card">
+
+                images/seiko-snkl45.jpg
+
+                <h3>Seiko 5 SNKL45</h3>
+                <p>$150</p>
+
+                <button>Edit</button>
+                <button>Delete</button>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</body>
+</html>

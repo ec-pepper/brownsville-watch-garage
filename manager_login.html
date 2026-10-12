@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manager Login</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="login-container">
+        <h1>Brownsville Watch Garage</h1>
+        <h2>Manager Login</h2>
+
+        <input type="password" id="password" placeholder="Password">
+
+        <button onclick="login()">Login</button>
+    </div>
+
+    <script>
+        function login() {
+            const password = document.getElementById("password").value;
+
+            if (password === "garage123") {
+                window.location.href = "manager.html";
+            } else {
+                alert("Incorrect password.");
+            }
+        }
+    </script>
+
+</body>
+</html>
