@@ -34,7 +34,10 @@
                 const { error } = await supabase.auth.signInWithOAuth({
                     provider: "github",
                     options: {
-                        redirectTo: "https://ec-pepper.github.io/brownsville-watch-garage/manager.html"
+                        redirectTo: new URL(
+                            "manager.html",
+                            window.location.href
+                        ).href
                     }
                 });
 
