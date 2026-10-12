@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,8 +35,24 @@
             margin: 16px 0;
         }
 
-        #form-status {
+        #form-status,
+        #inventory-status {
             white-space: pre-wrap;
+        }
+
+        .delete-watch-button {
+            background: #a92323;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        .delete-watch-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
     </style>
 </head>
@@ -89,9 +106,7 @@
                     placeholder="Condition, movement, size, details..."
                 ></textarea><br><br>
 
-                <label for="watch-images">
-                    Watch Photos (select multiple)
-                </label><br>
+                <label for="watch-images">Watch Photos (select multiple)</label><br>
                 <input
                     type="file"
                     id="watch-images"
@@ -107,7 +122,7 @@
                     Add Watch
                 </button>
 
-                <p id="form-status" role="status"></p>
+                <p id="form-status" role="status" aria-live="polite"></p>
             </form>
         </section>
 
@@ -115,6 +130,7 @@
 
         <section>
             <h2>Current Inventory</h2>
+            <p id="inventory-status" role="status" aria-live="polite"></p>
             <div id="inventory-list">
                 <p>Loading inventory...</p>
             </div>
@@ -143,6 +159,8 @@
 
         const form = document.getElementById("watch-form");
         const status = document.getElementById("form-status");
+        const inventoryStatus =
+            document.getElementById("inventory-status");
         const inventory = document.getElementById("inventory-list");
         const imageInput = document.getElementById("watch-images");
         const previews = document.getElementById("image-previews");
@@ -206,9 +224,10 @@
 
             document.getElementById("logout-button")
                 .addEventListener("click", async () => {
-                    const { error } = await supabase.auth.signOut();
+                    const { error: logoutError } =
+                        await supabase.auth.signOut();
 
-                    if (error) {
+                    if (logoutError) {
                         alert("Unable to log out. Please try again.");
                         return;
                     }
@@ -261,7 +280,6 @@
                 return;
             }
 
-            // Limit each photo to 8 MB.
             if (files.some(file => file.size > 8 * 1024 * 1024)) {
                 status.textContent =
                     "Each photo must be 8 MB or smaller.";
@@ -275,7 +293,6 @@
             const imageUrls = [];
 
             try {
-                // Upload each photo to Supabase Storage.
                 for (const file of files) {
                     const safeName = file.name
                         .replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -292,9 +309,7 @@
                             contentType: file.type
                         });
 
-                    if (uploadError) {
-                        throw uploadError;
-                    }
+                    if (uploadError) throw uploadError;
 
                     uploadedPaths.push(path);
 
@@ -306,7 +321,6 @@
                     imageUrls.push(data.publicUrl);
                 }
 
-                // Save the watch and its photo URLs.
                 const { error: insertError } = await supabase
                     .from("watches")
                     .insert({
@@ -318,9 +332,7 @@
                         image_url: imageUrls[0] || null
                     });
 
-                if (insertError) {
-                    throw insertError;
-                }
+                if (insertError) throw insertError;
 
                 form.reset();
                 clearPreviews();
@@ -330,7 +342,6 @@
             } catch (error) {
                 console.error("Could not save watch:", error);
 
-                // Remove newly uploaded photos if saving failed.
                 if (uploadedPaths.length) {
                     const { error: cleanupError } = await supabase
                         .storage
@@ -347,14 +358,127 @@
 
                 status.textContent =
                     "Could not save watch: " +
-                    (error.message || "Unknown error. Check the console.");
+                    (error.message || "Unknown error.");
             } finally {
                 addButton.disabled = false;
             }
         }
 
+        // Only remove photos belonging to this account in our bucket.
+        function getOwnedStoragePath(publicUrl) {
+            if (typeof publicUrl !== "string") return null;
+
+            try {
+                const parsed = new URL(publicUrl);
+                const expectedOrigin = new URL(SUPABASE_URL).origin;
+                const prefix =
+                    "/storage/v1/object/public/" + BUCKET + "/";
+
+                if (
+                    parsed.origin !== expectedOrigin ||
+                    !parsed.pathname.startsWith(prefix)
+                ) {
+                    return null;
+                }
+
+                const path = decodeURIComponent(
+                    parsed.pathname.slice(prefix.length)
+                );
+
+                if (!path.startsWith(authorizedUserId + "/")) {
+                    return null;
+                }
+
+                return path;
+            } catch {
+                return null;
+            }
+        }
+
+        async function deleteWatch(watch, button) {
+            if (!authorizedUserId) {
+                alert("Please sign in again.");
+                return;
+            }
+
+            const confirmed = window.confirm(
+                `Delete ${watch.brand} ${watch.model} from inventory?\n\n` +
+                "This permanently removes the inventory listing. " +
+                "This action cannot be undone."
+            );
+
+            if (!confirmed) return;
+
+            button.disabled = true;
+            button.textContent = "Deleting...";
+
+            try {
+                // Delete only the selected record. RLS must authorize it.
+                const { data: deletedRows, error: deleteError } =
+                    await supabase
+                        .from("watches")
+                        .delete()
+                        .eq("id", watch.id)
+                        .select("id");
+
+                if (deleteError) throw deleteError;
+
+                if (!deletedRows || deletedRows.length === 0) {
+                    throw new Error(
+                        "No watch was deleted. Check your database delete policy."
+                    );
+                }
+
+                // Remove only photo objects owned by this account.
+                const urls = [
+                    ...(Array.isArray(watch.image_urls)
+                        ? watch.image_urls
+                        : []),
+                    watch.image_url
+                ].filter(Boolean);
+
+                const paths = [...new Set(
+                    urls.map(getOwnedStoragePath).filter(Boolean)
+                )];
+
+                let photoWarning = "";
+
+                if (paths.length) {
+                    const { error: photoError } = await supabase
+                        .storage
+                        .from(BUCKET)
+                        .remove(paths);
+
+                    if (photoError) {
+                        console.error(
+                            "Watch deleted, but photo cleanup failed:",
+                            photoError
+                        );
+                        photoWarning =
+                            " The listing was deleted, but some photos could not be removed.";
+                    }
+                }
+
+                inventoryStatus.textContent =
+                    `${watch.brand} ${watch.model} deleted.` +
+                    photoWarning;
+
+                await loadInventory();
+            } catch (error) {
+                console.error("Could not delete watch:", error);
+
+                inventoryStatus.textContent =
+                    "Could not delete watch: " +
+                    (error.message || "Unknown error.");
+
+                button.disabled = false;
+                button.textContent = "Delete Watch";
+            }
+        }
+
         async function loadInventory() {
             inventory.replaceChildren();
+            inventoryStatus.textContent = "Loading inventory...";
 
             const { data: watches, error } = await supabase
                 .from("watches")
@@ -363,19 +487,18 @@
 
             if (error) {
                 console.error("Inventory load failed:", error);
-                const message = document.createElement("p");
-                message.textContent =
+                inventoryStatus.textContent =
                     "Could not load inventory: " + error.message;
-                inventory.appendChild(message);
                 return;
             }
 
             if (!watches || watches.length === 0) {
-                const empty = document.createElement("p");
-                empty.textContent = "No watches in inventory yet.";
-                inventory.appendChild(empty);
+                inventoryStatus.textContent =
+                    "No watches in inventory yet.";
                 return;
             }
+
+            inventoryStatus.textContent = "";
 
             for (const watch of watches) {
                 const card = document.createElement("article");
@@ -394,10 +517,12 @@
                 card.append(heading, price, description);
 
                 const urls = Array.isArray(watch.image_urls)
-                    ? watch.image_urls
-                    : watch.image_url
-                        ? [watch.image_url]
-                        : [];
+                    ? [...new Set(watch.image_urls.filter(Boolean))]
+                    : [];
+
+                if (urls.length === 0 && watch.image_url) {
+                    urls.push(watch.image_url);
+                }
 
                 if (urls.length) {
                     const gallery = document.createElement("div");
@@ -414,6 +539,16 @@
                     card.appendChild(gallery);
                 }
 
+                const deleteButton = document.createElement("button");
+                deleteButton.type = "button";
+                deleteButton.className = "delete-watch-button";
+                deleteButton.textContent = "Delete Watch";
+
+                deleteButton.addEventListener("click", () => {
+                    deleteWatch(watch, deleteButton);
+                });
+
+                card.appendChild(deleteButton);
                 inventory.appendChild(card);
             }
         }
@@ -425,3 +560,4 @@
     </script>
 </body>
 </html>
+
