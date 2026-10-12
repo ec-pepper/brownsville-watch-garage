@@ -5,6 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Brownsville Watch Garage</title>
     <link rel="stylesheet" href="style.css">
+
+    <style>
+        .public-watch-card {
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+
+        .public-watch-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 12px 0;
+        }
+
+        .public-watch-images img {
+            width: 160px;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .watch-price {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        #inventory-status {
+            white-space: pre-wrap;
+        }
+    </style>
 </head>
 <body>
 
@@ -13,24 +45,22 @@
         <p>Buy • Sell • Donate</p>
 
         <nav>
-                <ul>
-                    <li><a href="#inventory">Inventory</a></li>
-                    <li><a href="#about">About</a></li>
-                    <li><a href="#contact">Contact</a></li>
-                </ul>
+            <ul>
+                <li><a href="#inventory">Inventory</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
         </nav>
     </header>
 
-        <section id="about">
+    <section id="about">
         <h2>About Me</h2>
-
         <p>
             Welcome to my small business hobby known as The Brownsville Watch Garage.
             I buy, sell, and collect vintage watches while learning the craft of
             restoration. Every watch is part of my journey to improve my skills and
             bring older timepieces back to life.
         </p>
-        
     </section>
 
     <section class="hero">
@@ -40,14 +70,15 @@
     <section id="inventory">
         <h2>Available Watches</h2>
 
-        <div class="inventory">
-            <p>No watches are currently available. Check back soon for new inventory.</p>
-        </div>
+        <p id="inventory-status" role="status" aria-live="polite">
+            Loading available watches...
+        </p>
+
+        <div class="inventory" id="public-inventory"></div>
     </section>
 
     <section id="contact">
         <h2>Contact</h2>
-
         <p>Email: emiliano.castro.0878@gmail.com</p>
     </section>
 
@@ -56,6 +87,99 @@
     </footer>
 
     <a href="manager_login.html">Manager Login</a>
+
+    <script type="module">
+        import { createClient } from
+            "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+        const SUPABASE_URL =
+            "https://bgqfxirtqraxsiqrryoi.supabase.co";
+
+        const SUPABASE_PUBLISHABLE_KEY =
+            "sb_publishable_2MoZxCN5_YXXs3_lRU_r9w_tKj1XRrM";
+
+        const supabase = createClient(
+            SUPABASE_URL,
+            SUPABASE_PUBLISHABLE_KEY
+        );
+
+        const inventory = document.getElementById("public-inventory");
+        const status = document.getElementById("inventory-status");
+
+        async function loadPublicInventory() {
+            inventory.replaceChildren();
+            status.textContent = "Loading available watches...";
+
+            const { data: watches, error } = await supabase
+                .from("watches")
+                .select("id, brand, model, price, description, image_url, image_urls, created_at")
+                .order("created_at", { ascending: false });
+
+            if (error) {
+                console.error("Public inventory load failed:", error);
+                status.textContent =
+                    "Inventory could not be loaded right now. Please try again later.";
+                return;
+            }
+
+            if (!watches || watches.length === 0) {
+                status.textContent =
+                    "No watches are currently available. Check back soon for new inventory.";
+                return;
+            }
+
+            status.textContent = "";
+
+            for (const watch of watches) {
+                const card = document.createElement("article");
+                card.className = "public-watch-card";
+
+                const heading = document.createElement("h3");
+                heading.textContent = `${watch.brand} ${watch.model}`;
+
+                const price = document.createElement("p");
+                price.className = "watch-price";
+                price.textContent =
+                    "$" + Number(watch.price).toFixed(2);
+
+                const description = document.createElement("p");
+                description.textContent =
+                    watch.description || "Contact us for more details.";
+
+                card.append(heading, price, description);
+
+                const urls = Array.isArray(watch.image_urls)
+                    ? [...new Set(watch.image_urls.filter(
+                        url => typeof url === "string" && url.trim()
+                    ))]
+                    : [];
+
+                if (urls.length === 0 && watch.image_url) {
+                    urls.push(watch.image_url);
+                }
+
+                if (urls.length > 0) {
+                    const gallery = document.createElement("div");
+                    gallery.className = "public-watch-images";
+
+                    for (const url of urls) {
+                        const image = document.createElement("img");
+                        image.src = url;
+                        image.alt = `${watch.brand} ${watch.model}`;
+                        image.loading = "lazy";
+                        image.onerror = () => image.remove();
+                        gallery.appendChild(image);
+                    }
+
+                    card.appendChild(gallery);
+                }
+
+                inventory.appendChild(card);
+            }
+        }
+
+        loadPublicInventory();
+    </script>
 
 </body>
 </html>
