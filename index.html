@@ -135,7 +135,14 @@
                 card.className = "public-watch-card";
 
                 const heading = document.createElement("h3");
-                heading.textContent = `${watch.brand} ${watch.model}`;
+                heading.textContent = [watch.brand, watch.model]
+                    .filter(Boolean)
+                    .filter((value, index, values) =>
+                        values.findIndex(
+                            item => item.toLowerCase() === value.toLowerCase()
+                        ) === index
+                    )
+                    .join(" ");
 
                 const price = document.createElement("p");
                 price.className = "watch-price";
