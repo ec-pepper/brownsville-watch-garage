@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,11 +11,37 @@
         body {
             visibility: hidden;
         }
+
+        #image-previews,
+        .watch-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 12px 0;
+        }
+
+        #image-previews img,
+        .watch-images img {
+            width: 130px;
+            height: 130px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .watch-card {
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+
+        #form-status {
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 
 <body>
-
     <header>
         <h1>Brownsville Watch Garage</h1>
         <p>Manager Dashboard</p>
@@ -31,7 +58,7 @@
                     type="text"
                     id="brand"
                     name="brand"
-                    placeholder="BRAND"
+                    placeholder="e.g. Seiko"
                     required
                 ><br><br>
 
@@ -40,7 +67,7 @@
                     type="text"
                     id="model"
                     name="model"
-                    placeholder="MODEL"
+                    placeholder="e.g. SNKL45"
                     required
                 ><br><br>
 
@@ -49,7 +76,7 @@
                     type="number"
                     id="price"
                     name="price"
-                    placeholder="$$$"
+                    placeholder="e.g. 110"
                     min="0"
                     step="0.01"
                     required
@@ -60,25 +87,26 @@
                     id="description"
                     name="description"
                     rows="5"
-                    placeholder="Watch description"
+                    placeholder="Condition, movement, size, details..."
                 ></textarea><br><br>
 
-                <label for="watch-image">Watch Image</label><br>
+                <label for="watch-images">
+                    Watch Photos (select multiple)
+                </label><br>
                 <input
                     type="file"
-                    id="watch-image"
-                    name="watch-image"
+                    id="watch-images"
+                    name="watch-images"
                     accept="image/*"
-                ><br><br>
+                    multiple
+                >
+                <p>You can select multiple photos for one watch.</p>
 
-                <img
-                    id="image-preview"
-                    src="images/no-image.png"
-                    alt="Watch image preview"
-                    width="180"
-                ><br><br>
+                <div id="image-previews"></div>
 
-                <button type="submit">Add Watch</button>
+                <button type="submit" id="add-watch-button">
+                    Add Watch
+                </button>
 
                 <p id="form-status" role="status"></p>
             </form>
@@ -88,11 +116,8 @@
 
         <section>
             <h2>Current Inventory</h2>
-
             <div id="inventory-list">
-                <p id="inventory-empty">
-                    No watches in inventory yet.
-                </p>
+                <p>Loading inventory...</p>
             </div>
         </section>
     </main>
@@ -110,15 +135,62 @@
         const ALLOWED_USER_ID =
             "668c3aec-711f-4fb4-afad-317a25c3a7f7";
 
+        const BUCKET = "watch-images";
+
         const supabase = createClient(
             SUPABASE_URL,
             SUPABASE_PUBLISHABLE_KEY
         );
 
+        const form = document.getElementById("watch-form");
+        const status = document.getElementById("form-status");
+        const inventory = document.getElementById("inventory-list");
+        const imageInput = document.getElementById("watch-images");
+        const previews = document.getElementById("image-previews");
+        const addButton = document.getElementById("add-watch-button");
+
+        let authorizedUserId = null;
+        let previewUrls = [];
+
+        function clearPreviews() {
+            previewUrls.forEach(url => URL.revokeObjectURL(url));
+            previewUrls = [];
+            previews.replaceChildren();
+        }
+
+        function showPreviews() {
+            clearPreviews();
+
+            const files = Array.from(imageInput.files || []);
+
+            for (const file of files) {
+                if (!file.type.startsWith("image/")) {
+                    status.textContent =
+                        "Please select image files only.";
+                    imageInput.value = "";
+                    clearPreviews();
+                    return;
+                }
+
+                const url = URL.createObjectURL(file);
+                previewUrls.push(url);
+
+                const image = document.createElement("img");
+                image.src = url;
+                image.alt = "Selected watch photo preview";
+                image.title = file.name;
+                previews.appendChild(image);
+            }
+
+            status.textContent = files.length
+                ? `${files.length} photo(s) selected.`
+                : "";
+        }
+
+        imageInput.addEventListener("change", showPreviews);
+
         async function initializeManager() {
-            // Verify the signed-in user.
-            const { data, error } =
-                await supabase.auth.getUser();
+            const { data, error } = await supabase.auth.getUser();
 
             if (
                 error ||
@@ -130,14 +202,12 @@
                 return;
             }
 
-            // Reveal the dashboard only after verification.
+            authorizedUserId = data.user.id;
             document.body.style.visibility = "visible";
 
-            // Log out.
             document.getElementById("logout-button")
                 .addEventListener("click", async () => {
-                    const { error } =
-                        await supabase.auth.signOut();
+                    const { error } = await supabase.auth.signOut();
 
                     if (error) {
                         alert("Unable to log out. Please try again.");
@@ -147,51 +217,213 @@
                     window.location.replace("manager_login.html");
                 });
 
-            // Preview the selected watch image.
-            const imageInput =
-                document.getElementById("watch-image");
+            form.addEventListener("submit", saveWatch);
 
-            const imagePreview =
-                document.getElementById("image-preview");
-
-            imageInput.addEventListener("change", () => {
-                const file = imageInput.files[0];
-
-                if (!file) {
-                    imagePreview.src = "images/no-image.png";
-                    return;
-                }
-
-                if (!file.type.startsWith("image/")) {
-                    alert("Please select an image file.");
-                    imageInput.value = "";
-                    imagePreview.src = "images/no-image.png";
-                    return;
-                }
-
-                imagePreview.src = URL.createObjectURL(file);
-            });
-
-            // Inventory saving will be connected next.
-            document.getElementById("watch-form")
-                .addEventListener("submit", (event) => {
-                    event.preventDefault();
-
-                    document.getElementById("form-status")
-                        .textContent =
-                        "Your account is verified. Inventory saving still needs to be connected.";
-                });
+            await loadInventory();
         }
 
-        initializeManager().catch((error) => {
-            console.error(
-                "Manager initialization failed:",
-                error
+        async function saveWatch(event) {
+            event.preventDefault();
+
+            if (!authorizedUserId) {
+                status.textContent = "Please sign in again.";
+                return;
+            }
+
+            const brand =
+                document.getElementById("brand").value.trim();
+
+            const model =
+                document.getElementById("model").value.trim();
+
+            const price = Number(
+                document.getElementById("price").value
             );
 
+            const description =
+                document.getElementById("description").value.trim();
+
+            const files = Array.from(imageInput.files || []);
+
+            if (
+                !brand ||
+                !model ||
+                !Number.isFinite(price) ||
+                price < 0
+            ) {
+                status.textContent =
+                    "Please enter a valid brand, model, and price.";
+                return;
+            }
+
+            if (files.some(file => !file.type.startsWith("image/"))) {
+                status.textContent =
+                    "Please select image files only.";
+                return;
+            }
+
+            // Limit each photo to 8 MB.
+            if (files.some(file => file.size > 8 * 1024 * 1024)) {
+                status.textContent =
+                    "Each photo must be 8 MB or smaller.";
+                return;
+            }
+
+            addButton.disabled = true;
+            status.textContent = "Uploading photos and saving watch...";
+
+            const uploadedPaths = [];
+            const imageUrls = [];
+
+            try {
+                // Upload each photo to Supabase Storage.
+                for (const file of files) {
+                    const safeName = file.name
+                        .replace(/[^a-zA-Z0-9._-]/g, "_");
+
+                    const path =
+                        `${authorizedUserId}/${crypto.randomUUID()}-${safeName}`;
+
+                    const { error: uploadError } = await supabase
+                        .storage
+                        .from(BUCKET)
+                        .upload(path, file, {
+                            cacheControl: "3600",
+                            upsert: false,
+                            contentType: file.type
+                        });
+
+                    if (uploadError) {
+                        throw uploadError;
+                    }
+
+                    uploadedPaths.push(path);
+
+                    const { data } = supabase
+                        .storage
+                        .from(BUCKET)
+                        .getPublicUrl(path);
+
+                    imageUrls.push(data.publicUrl);
+                }
+
+                // Save the watch and its photo URLs.
+                const { error: insertError } = await supabase
+                    .from("watches")
+                    .insert({
+                        brand,
+                        model,
+                        price,
+                        description,
+                        image_urls: imageUrls,
+                        image_url: imageUrls[0] || null
+                    });
+
+                if (insertError) {
+                    throw insertError;
+                }
+
+                form.reset();
+                clearPreviews();
+                status.textContent = "Watch added successfully!";
+
+                await loadInventory();
+            } catch (error) {
+                console.error("Could not save watch:", error);
+
+                // Remove newly uploaded photos if saving failed.
+                if (uploadedPaths.length) {
+                    const { error: cleanupError } = await supabase
+                        .storage
+                        .from(BUCKET)
+                        .remove(uploadedPaths);
+
+                    if (cleanupError) {
+                        console.error(
+                            "Photo cleanup failed:",
+                            cleanupError
+                        );
+                    }
+                }
+
+                status.textContent =
+                    "Could not save watch: " +
+                    (error.message || "Unknown error. Check the console.");
+            } finally {
+                addButton.disabled = false;
+            }
+        }
+
+        async function loadInventory() {
+            inventory.replaceChildren();
+
+            const { data: watches, error } = await supabase
+                .from("watches")
+                .select("*")
+                .order("created_at", { ascending: false });
+
+            if (error) {
+                console.error("Inventory load failed:", error);
+                const message = document.createElement("p");
+                message.textContent =
+                    "Could not load inventory: " + error.message;
+                inventory.appendChild(message);
+                return;
+            }
+
+            if (!watches || watches.length === 0) {
+                const empty = document.createElement("p");
+                empty.textContent = "No watches in inventory yet.";
+                inventory.appendChild(empty);
+                return;
+            }
+
+            for (const watch of watches) {
+                const card = document.createElement("article");
+                card.className = "watch-card";
+
+                const heading = document.createElement("h3");
+                heading.textContent = `${watch.brand} ${watch.model}`;
+
+                const price = document.createElement("p");
+                price.textContent =
+                    "$" + Number(watch.price).toFixed(2);
+
+                const description = document.createElement("p");
+                description.textContent = watch.description || "";
+
+                card.append(heading, price, description);
+
+                const urls = Array.isArray(watch.image_urls)
+                    ? watch.image_urls
+                    : watch.image_url
+                        ? [watch.image_url]
+                        : [];
+
+                if (urls.length) {
+                    const gallery = document.createElement("div");
+                    gallery.className = "watch-images";
+
+                    for (const url of urls) {
+                        const image = document.createElement("img");
+                        image.src = url;
+                        image.alt = `${watch.brand} ${watch.model}`;
+                        image.loading = "lazy";
+                        gallery.appendChild(image);
+                    }
+
+                    card.appendChild(gallery);
+                }
+
+                inventory.appendChild(card);
+            }
+        }
+
+        initializeManager().catch(error => {
+            console.error("Manager initialization failed:", error);
             window.location.replace("manager_login.html");
         });
     </script>
-
 </body>
 </html>
+```
