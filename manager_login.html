@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manager Login</title>
+    <title>Manager Login | Brownsville Watch Garage</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,21 +12,37 @@
         <h1>Brownsville Watch Garage</h1>
         <h2>Manager Login</h2>
 
-        <input type="password" id="password" placeholder="Password">
-
-        <button onclick="login()">Login</button>
+        <button id="github-login">Sign in with GitHub</button>
+        <p id="status" role="status"></p>
     </div>
 
-    <script>
-        function login() {
-            const password = document.getElementById("password").value;
+    <script type="module">
+        import { createClient } from
+            "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-            if (password === "garage123") {
-                window.location.href = "manager.html";
-            } else {
-                alert("Incorrect password.");
+        const supabase = createClient(
+            "https://bgqfxirtqraxsiqrryoi.supabase.co",
+            "sb_publishable_2MoZxCN5_YXXs3_lRU_r9w_tKj1XRrM"
+        );
+
+        document.getElementById("github-login").addEventListener(
+            "click",
+            async () => {
+                const status = document.getElementById("status");
+                status.textContent = "Redirecting to GitHub...";
+
+                const { error } = await supabase.auth.signInWithOAuth({
+                    provider: "github",
+                    options: {
+                        redirectTo: window.location.origin + "/manager.html"
+                    }
+                });
+
+                if (error) {
+                    status.textContent = "Login failed: " + error.message;
+                }
             }
-        }
+        );
     </script>
 
 </body>
