@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -161,12 +160,3 @@
 
 </body>
 </html>
-```
-
-**Important setup notes:**
-
-- Replace `https://bgqfxirtqraxsiqrryoi.supabase.co` with your actual project URL.
-- Change `login.html` if your login page uses a different filename.
-- The form currently previews images but does not save watches yet. To make **Add Watch**, **Edit**, and **Delete** work, you still need a Supabase inventory table and image storage bucket with appropriate access policies.
-- The session check is a frontend convenience, not complete authorization. Restrict database access with Supabase RLS so only your manager account can modify inventory.
-- Make sure `images/no-image.png` exists in your repository, or replace it with a placeholder image you already have.
