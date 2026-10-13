@@ -39,15 +39,44 @@
             padding: 12px 18px;
             background-color: #222;
             color: #fff;
+            border: none;
             text-decoration: none;
             border-radius: 6px;
             font-weight: bold;
             text-align: center;
+            cursor: pointer;
+            font: inherit;
             transition: background-color 0.2s ease;
         }
 
         .contact-watch-button:hover {
             background-color: #444;
+        }
+
+        .inquiry-options {
+            display: none;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .inquiry-options.open {
+            display: flex;
+        }
+
+        .inquiry-option {
+            display: inline-block;
+            padding: 10px 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            color: inherit;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .inquiry-option:hover {
+            background-color: #eee;
+            color: #222;
         }
 
         #inventory-status {
@@ -97,6 +126,7 @@
 
     <section id="contact">
         <h2>Contact</h2>
+
         <p>
             Instagram:
             <a
@@ -107,6 +137,7 @@
                 @btxwatchgarage
             </a>
         </p>
+
         <p>
             Email:
             <a href="mailto:emiliano.castro.0878@gmail.com">
@@ -133,6 +164,9 @@
 
         const INSTAGRAM_URL =
             "https://www.instagram.com/btxwatchgarage/";
+
+        const CONTACT_EMAIL =
+            "emiliano.castro.0878@gmail.com";
 
         const supabase = createClient(
             SUPABASE_URL,
@@ -173,6 +207,7 @@
                 card.className = "public-watch-card";
 
                 const heading = document.createElement("h3");
+
                 heading.textContent = [watch.brand, watch.model]
                     .filter(Boolean)
                     .filter((value, index, values) =>
@@ -181,12 +216,15 @@
                                 item.toLowerCase() === value.toLowerCase()
                         ) === index
                     )
-                    .join(" ");
+                    .join(" ") || "Vintage Watch";
 
                 const price = document.createElement("p");
                 price.className = "watch-price";
-                price.textContent =
-                    "$" + Number(watch.price).toFixed(2);
+
+                const numericPrice = Number(watch.price);
+                price.textContent = Number.isFinite(numericPrice)
+                    ? "$" + numericPrice.toFixed(2)
+                    : "Contact us for pricing";
 
                 const description = document.createElement("p");
                 description.textContent =
@@ -194,6 +232,7 @@
 
                 card.append(heading, price, description);
 
+                // Display all available watch photos.
                 const urls = Array.isArray(watch.image_urls)
                     ? [
                         ...new Set(
@@ -216,6 +255,7 @@
 
                     for (const url of urls) {
                         const image = document.createElement("img");
+
                         image.src = url;
                         image.alt =
                             `${watch.brand || ""} ${watch.model || ""}`.trim()
@@ -229,19 +269,63 @@
                     card.appendChild(gallery);
                 }
 
-                // Instagram contact button for this watch.
-                const contactButton = document.createElement("a");
+                // Main Inquire button.
+                const contactButton = document.createElement("button");
+                contactButton.type = "button";
                 contactButton.className = "contact-watch-button";
-                contactButton.href = INSTAGRAM_URL;
-                contactButton.target = "_blank";
-                contactButton.rel = "noopener noreferrer";
-                contactButton.textContent = "Inquire on Instagram";
+                contactButton.textContent = "Inquire";
                 contactButton.setAttribute(
-                    "aria-label",
-                    `Ask about ${heading.textContent || "this watch"} on Instagram`
+                    "aria-expanded",
+                    "false"
                 );
 
-                card.appendChild(contactButton);
+                // Contact options menu.
+                const options = document.createElement("div");
+                options.className = "inquiry-options";
+
+                const instagramLink = document.createElement("a");
+                instagramLink.className = "inquiry-option";
+                instagramLink.href = INSTAGRAM_URL;
+                instagramLink.target = "_blank";
+                instagramLink.rel = "noopener noreferrer";
+                instagramLink.textContent = "Message on Instagram";
+
+                const emailSubject = encodeURIComponent(
+                    `Watch Inquiry: ${heading.textContent}`
+                );
+
+                const emailBody = encodeURIComponent(
+                    `Hello Brownsville Watch Garage,\n\n` +
+                    `I'm interested in this watch:\n` +
+                    `Watch: ${heading.textContent}\n` +
+                    `Listed price: ${price.textContent}\n\n` +
+                    `Is this watch still available?\n\nThank you!`
+                );
+
+                const emailLink = document.createElement("a");
+                emailLink.className = "inquiry-option";
+                emailLink.href =
+                    `mailto:${CONTACT_EMAIL}` +
+                    `?subject=${emailSubject}` +
+                    `&body=${emailBody}`;
+                emailLink.textContent = "Send an Email";
+
+                options.append(instagramLink, emailLink);
+
+                contactButton.addEventListener("click", () => {
+                    const isOpen = options.classList.toggle("open");
+
+                    contactButton.setAttribute(
+                        "aria-expanded",
+                        String(isOpen)
+                    );
+
+                    contactButton.textContent = isOpen
+                        ? "Close Inquiry Options"
+                        : "Inquire";
+                });
+
+                card.append(contactButton, options);
                 inventory.appendChild(card);
             }
         }
