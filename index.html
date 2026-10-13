@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Brownsville Watch Garage</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="icon.png">
 
     <style>
         .public-watch-card {
@@ -304,10 +305,15 @@
 
                 const emailLink = document.createElement("a");
                 emailLink.className = "inquiry-option";
+                
                 emailLink.href =
-                    `mailto:${CONTACT_EMAIL}` +
-                    `?subject=${emailSubject}` +
+                    "https://mail.google.com/mail/?view=cm&fs=1" +
+                    `&to=${encodeURIComponent(CONTACT_EMAIL)}` +
+                    `&su=${emailSubject}` +
                     `&body=${emailBody}`;
+                
+                emailLink.target = "_blank";
+                emailLink.rel = "noopener noreferrer";
                 emailLink.textContent = "Send an Email";
 
                 options.append(instagramLink, emailLink);
