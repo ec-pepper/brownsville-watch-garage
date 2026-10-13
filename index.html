@@ -33,11 +33,29 @@
             font-weight: bold;
         }
 
+        .contact-watch-button {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 12px 18px;
+            background-color: #222;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            text-align: center;
+            transition: background-color 0.2s ease;
+        }
+
+        .contact-watch-button:hover {
+            background-color: #444;
+        }
+
         #inventory-status {
             white-space: pre-wrap;
         }
     </style>
 </head>
+
 <body>
 
     <header>
@@ -79,7 +97,22 @@
 
     <section id="contact">
         <h2>Contact</h2>
-        <p>Email: emiliano.castro.0878@gmail.com</p>
+        <p>
+            Instagram:
+            <a
+                href="https://www.instagram.com/btxwatchgarage/"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                @btxwatchgarage
+            </a>
+        </p>
+        <p>
+            Email:
+            <a href="mailto:emiliano.castro.0878@gmail.com">
+                emiliano.castro.0878@gmail.com
+            </a>
+        </p>
     </section>
 
     <footer>
@@ -98,6 +131,9 @@
         const SUPABASE_PUBLISHABLE_KEY =
             "sb_publishable_2MoZxCN5_YXXs3_lRU_r9w_tKj1XRrM";
 
+        const INSTAGRAM_URL =
+            "https://www.instagram.com/btxwatchgarage/";
+
         const supabase = createClient(
             SUPABASE_URL,
             SUPABASE_PUBLISHABLE_KEY
@@ -112,7 +148,9 @@
 
             const { data: watches, error } = await supabase
                 .from("watches")
-                .select("id, brand, model, price, description, image_url, image_urls, created_at")
+                .select(
+                    "id, brand, model, price, description, image_url, image_urls, created_at"
+                )
                 .order("created_at", { ascending: false });
 
             if (error) {
@@ -139,7 +177,8 @@
                     .filter(Boolean)
                     .filter((value, index, values) =>
                         values.findIndex(
-                            item => item.toLowerCase() === value.toLowerCase()
+                            item =>
+                                item.toLowerCase() === value.toLowerCase()
                         ) === index
                     )
                     .join(" ");
@@ -156,9 +195,15 @@
                 card.append(heading, price, description);
 
                 const urls = Array.isArray(watch.image_urls)
-                    ? [...new Set(watch.image_urls.filter(
-                        url => typeof url === "string" && url.trim()
-                    ))]
+                    ? [
+                        ...new Set(
+                            watch.image_urls.filter(
+                                url =>
+                                    typeof url === "string" &&
+                                    url.trim()
+                            )
+                        )
+                    ]
                     : [];
 
                 if (urls.length === 0 && watch.image_url) {
@@ -172,15 +217,31 @@
                     for (const url of urls) {
                         const image = document.createElement("img");
                         image.src = url;
-                        image.alt = `${watch.brand} ${watch.model}`;
+                        image.alt =
+                            `${watch.brand || ""} ${watch.model || ""}`.trim()
+                            || "Watch product photo";
                         image.loading = "lazy";
                         image.onerror = () => image.remove();
+
                         gallery.appendChild(image);
                     }
 
                     card.appendChild(gallery);
                 }
 
+                // Instagram contact button for this watch.
+                const contactButton = document.createElement("a");
+                contactButton.className = "contact-watch-button";
+                contactButton.href = INSTAGRAM_URL;
+                contactButton.target = "_blank";
+                contactButton.rel = "noopener noreferrer";
+                contactButton.textContent = "Inquire on Instagram";
+                contactButton.setAttribute(
+                    "aria-label",
+                    `Ask about ${heading.textContent || "this watch"} on Instagram`
+                );
+
+                card.appendChild(contactButton);
                 inventory.appendChild(card);
             }
         }
